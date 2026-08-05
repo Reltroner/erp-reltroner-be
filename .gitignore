@@ -25,3 +25,56 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# BEGIN RELTRONER ERP MANAGED IGNORE
+# Managed by Phase 1 Chunk 1.2.
+
+# Local environment and authentication secrets
+/.env
+/.env.*
+!/.env.example
+!/.env.sample
+!/.env.template
+/auth.json
+
+# Dependencies
+/vendor/
+/node_modules/
+/composer.phar
+
+# Laravel runtime data
+/storage/logs/*
+!/storage/logs/.gitignore
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/pail/
+/storage/*.key
+
+# Laravel generated output
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitignore
+/public/build/
+/public/hot
+/public/storage
+
+# Test and tool caches
+/coverage/
+/.phpunit.cache/
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+/.phpactor.json
+
+# Logs
+*.log
+
+# Local operating-system and IDE files
+.DS_Store
+Thumbs.db
+/.idea/
+/.fleet/
+/.nova/
+# END RELTRONER ERP MANAGED IGNORE
