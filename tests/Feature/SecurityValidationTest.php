@@ -14,6 +14,8 @@ class SecurityValidationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const WINDOWS_OPENSSL_CONFIG = 'C:/Program Files/Git/mingw64/ssl/openssl.cnf';
+
     protected string $privateKey;
     protected string $publicKey;
     protected string $wrongPrivateKey;
@@ -23,29 +25,125 @@ class SecurityValidationTest extends TestCase
         parent::setUp();
 
         // 1. Generate test RSA key pair
-        $configPath = 'C:/Program Files/Git/mingw64/ssl/openssl.cnf';
-        $res = openssl_pkey_new([
-            "config" => $configPath,
-            "private_key_bits" => 2048,
-            "private_key_type" => OPENSSL_KEYTYPE_RSA,
-        ]);
-        openssl_pkey_export($res, $privateKey, null, ["config" => $configPath]);
-        $this->privateKey = $privateKey;
-        $details = openssl_pkey_get_details($res);
-        $this->publicKey = $details["key"];
+        $keyPair = $this->generateRsaKeyPair();
+        $this->privateKey = $keyPair['private'];
+        $this->publicKey = $keyPair['public'];
 
         // 2. Generate different RSA key pair for testing invalid signature
-        $res2 = openssl_pkey_new([
-            "config" => $configPath,
-            "private_key_bits" => 2048,
-            "private_key_type" => OPENSSL_KEYTYPE_RSA,
-        ]);
-        openssl_pkey_export($res2, $wrongPrivateKey, null, ["config" => $configPath]);
-        $this->wrongPrivateKey = $wrongPrivateKey;
+        $wrongKeyPair = $this->generateRsaKeyPair();
+        $this->wrongPrivateKey = $wrongKeyPair['private'];
 
         // 3. Configure mock settings
         config(['keycloak.mock_mode' => true]);
         config(['keycloak.mock_public_key' => $this->publicKey]);
+    }
+
+    /**
+     * @return array{private: string, public: string}
+     */
+    private function generateRsaKeyPair(): array
+    {
+        $options = [
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ];
+
+        $this->drainOpenSslErrors();
+        $key = openssl_pkey_new($options);
+        $generationErrors = $key === false ? $this->drainOpenSslErrors() : [];
+        $configPath = null;
+
+        if ($key === false && PHP_OS_FAMILY === 'Windows') {
+            $resolvedConfigPath = realpath(self::WINDOWS_OPENSSL_CONFIG);
+
+            if (
+                $resolvedConfigPath !== false
+                && is_file($resolvedConfigPath)
+                && is_readable($resolvedConfigPath)
+            ) {
+                $configPath = $resolvedConfigPath;
+                $this->drainOpenSslErrors();
+                $key = openssl_pkey_new([
+                    ...$options,
+                    'config' => $configPath,
+                ]);
+
+                if ($key === false) {
+                    $generationErrors = array_merge(
+                        $generationErrors,
+                        $this->drainOpenSslErrors(),
+                    );
+                }
+            }
+        }
+
+        if ($key === false) {
+            self::fail($this->openSslFailureMessage(
+                'RSA test key generation failed',
+                $generationErrors,
+            ));
+        }
+
+        $privateKey = '';
+        $this->drainOpenSslErrors();
+        $exported = $configPath === null
+            ? openssl_pkey_export($key, $privateKey)
+            : openssl_pkey_export($key, $privateKey, null, ['config' => $configPath]);
+        $exportErrors = $this->drainOpenSslErrors();
+
+        if ($exported !== true || $privateKey === '') {
+            self::fail($this->openSslFailureMessage(
+                'RSA test private-key export failed',
+                $exportErrors,
+            ));
+        }
+
+        $this->drainOpenSslErrors();
+        $details = openssl_pkey_get_details($key);
+        $detailsErrors = $this->drainOpenSslErrors();
+
+        if (
+            $details === false
+            || !array_key_exists('key', $details)
+            || !is_string($details['key'])
+            || $details['key'] === ''
+        ) {
+            self::fail($this->openSslFailureMessage(
+                'RSA test public-key extraction failed',
+                $detailsErrors,
+            ));
+        }
+
+        return [
+            'private' => $privateKey,
+            'public' => $details['key'],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function drainOpenSslErrors(): array
+    {
+        $errors = [];
+
+        while (($error = openssl_error_string()) !== false) {
+            $errors[] = $error;
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param list<string> $errors
+     */
+    private function openSslFailureMessage(string $message, array $errors): string
+    {
+        $details = $errors === []
+            ? 'No OpenSSL error details were reported.'
+            : implode(' | ', array_values(array_unique($errors)));
+
+        return $message . '. ' . $details;
     }
 
     /**
