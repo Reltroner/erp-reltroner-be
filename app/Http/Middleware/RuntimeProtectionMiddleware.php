@@ -35,7 +35,7 @@ class RuntimeProtectionMiddleware
 
         return response()->json([
             'error' => 'Forbidden',
-            'message' => 'Internal runtime diagnostics access restricted'
+            'message' => 'Internal runtime diagnostics access restricted',
         ], 403);
     }
 }

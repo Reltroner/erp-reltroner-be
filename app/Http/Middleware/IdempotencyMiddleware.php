@@ -14,12 +14,12 @@ class IdempotencyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
+        if (! in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
             return $next($request);
         }
 
         $idempotencyKey = $request->header('X-Idempotency-Key');
-        if (!$idempotencyKey) {
+        if (! $idempotencyKey) {
             return $next($request);
         }
 
@@ -29,6 +29,7 @@ class IdempotencyMiddleware
 
         if (Cache::has($cacheKey)) {
             $cached = Cache::get($cacheKey);
+
             return response(
                 $cached['content'],
                 $cached['status'],
@@ -39,10 +40,10 @@ class IdempotencyMiddleware
         $lockKey = "idempotency_lock:{$userId}:{$idempotencyKey}";
         $lock = Cache::lock($lockKey, 10);
 
-        if (!$lock->get()) {
+        if (! $lock->get()) {
             return response()->json([
                 'error' => 'Conflict',
-                'message' => 'A request with the same idempotency key is already in progress'
+                'message' => 'A request with the same idempotency key is already in progress',
             ], 409);
         }
 
@@ -66,6 +67,7 @@ class IdempotencyMiddleware
     private function filterHeaders(array $headers): array
     {
         unset($headers['set-cookie'], $headers['Set-Cookie']);
+
         return array_map(fn ($val) => is_array($val) ? implode(', ', $val) : $val, $headers);
     }
 }

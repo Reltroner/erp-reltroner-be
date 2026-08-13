@@ -17,7 +17,9 @@ class SecurityValidationTest extends TestCase
     private const WINDOWS_OPENSSL_CONFIG = 'C:/Program Files/Git/mingw64/ssl/openssl.cnf';
 
     protected string $privateKey;
+
     protected string $publicKey;
+
     protected string $wrongPrivateKey;
 
     protected function setUp(): void
@@ -104,8 +106,8 @@ class SecurityValidationTest extends TestCase
 
         if (
             $details === false
-            || !array_key_exists('key', $details)
-            || !is_string($details['key'])
+            || ! array_key_exists('key', $details)
+            || ! is_string($details['key'])
             || $details['key'] === ''
         ) {
             self::fail($this->openSslFailureMessage(
@@ -135,7 +137,7 @@ class SecurityValidationTest extends TestCase
     }
 
     /**
-     * @param list<string> $errors
+     * @param  list<string>  $errors
      */
     private function openSslFailureMessage(string $message, array $errors): string
     {
@@ -143,7 +145,7 @@ class SecurityValidationTest extends TestCase
             ? 'No OpenSSL error details were reported.'
             : implode(' | ', array_values(array_unique($errors)));
 
-        return $message . '. ' . $details;
+        return $message.'. '.$details;
     }
 
     /**
@@ -159,13 +161,14 @@ class SecurityValidationTest extends TestCase
             'preferred_username' => 'testuser',
             'name' => 'Test User',
             'realm_access' => [
-                'roles' => ['erp-user']
+                'roles' => ['erp-user'],
             ],
             'exp' => time() + 3600,
             'iat' => time(),
         ], $overrides);
 
         $key = $useWrongKey ? $this->wrongPrivateKey : $this->privateKey;
+
         return JWT::encode($payload, $key, 'RS256', 'mock-kid');
     }
 
@@ -178,7 +181,7 @@ class SecurityValidationTest extends TestCase
     public function test_invalid_token_returns_401(): void
     {
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer invalid-token'
+            'Authorization' => 'Bearer invalid-token',
         ]);
         $response->assertStatus(401);
     }
@@ -187,7 +190,7 @@ class SecurityValidationTest extends TestCase
     {
         $token = $this->generateToken(['exp' => time() - 3600]);
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
         $response->assertStatus(401);
         $response->assertJsonFragment(['error' => 'Unauthorized']);
@@ -197,7 +200,7 @@ class SecurityValidationTest extends TestCase
     {
         $token = $this->generateToken(['aud' => 'wrong-audience']);
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
         $response->assertStatus(401);
         $response->assertJsonFragment(['error' => 'Unauthorized']);
@@ -207,7 +210,7 @@ class SecurityValidationTest extends TestCase
     {
         $token = $this->generateToken(['iss' => 'https://sso.reltroner.com/realms/wrong-realm']);
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
         $response->assertStatus(401);
         $response->assertJsonFragment(['error' => 'Unauthorized']);
@@ -217,7 +220,7 @@ class SecurityValidationTest extends TestCase
     {
         $token = $this->generateToken([], true);
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
         $response->assertStatus(401);
         $response->assertJsonFragment(['error' => 'Unauthorized']);
@@ -229,7 +232,7 @@ class SecurityValidationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name' => 'Acme Corp',
             'slug' => 'acme',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $sub = (string) Str::uuid();
@@ -237,24 +240,24 @@ class SecurityValidationTest extends TestCase
             'keycloak_subject' => $sub,
             'email' => 'user@acme.com',
             'display_name' => 'Acme User',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         TenantMembership::create([
             'tenant_id' => $tenant->id,
             'user_profile_id' => $userProfile->id,
             'role_key' => 'viewer',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $token = $this->generateToken([
             'sub' => $sub,
-            'email' => 'user@acme.com'
+            'email' => 'user@acme.com',
         ]);
 
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token,
-            'X-Tenant-ID' => $tenant->id
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-ID' => $tenant->id,
         ]);
 
         $response->assertStatus(200);
@@ -266,11 +269,11 @@ class SecurityValidationTest extends TestCase
         $sub = (string) Str::uuid();
         $token = $this->generateToken([
             'sub' => $sub,
-            'email' => 'user@acme.com'
+            'email' => 'user@acme.com',
         ]);
 
         $response = $this->getJson('/api/v1/admin/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
 
         $response->assertStatus(403);
@@ -284,12 +287,12 @@ class SecurityValidationTest extends TestCase
             'sub' => $sub,
             'email' => 'admin@reltroner.com',
             'realm_access' => [
-                'roles' => ['erp-admin']
-            ]
+                'roles' => ['erp-admin'],
+            ],
         ]);
 
         $response = $this->getJson('/api/v1/admin/dashboard', [
-            'Authorization' => 'Bearer ' . $token
+            'Authorization' => 'Bearer '.$token,
         ]);
 
         $response->assertStatus(200);
@@ -302,7 +305,7 @@ class SecurityValidationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name' => 'Acme Corp',
             'slug' => 'acme',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $sub = (string) Str::uuid();
@@ -311,14 +314,14 @@ class SecurityValidationTest extends TestCase
             'sub' => $sub,
             'email' => 'admin@reltroner.com',
             'realm_access' => [
-                'roles' => ['erp-admin']
-            ]
+                'roles' => ['erp-admin'],
+            ],
         ]);
 
         // Access erp dashboard under tenant, as admin (support access policy bypasses memberships)
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token,
-            'X-Tenant-ID' => $tenant->id
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-ID' => $tenant->id,
         ]);
 
         $response->assertStatus(200);
@@ -330,14 +333,14 @@ class SecurityValidationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name' => 'Tenant A',
             'slug' => 'tenant-a',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $tenantB = Tenant::create([
             'id' => (string) Str::uuid(),
             'name' => 'Tenant B',
             'slug' => 'tenant-b',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $sub = (string) Str::uuid();
@@ -345,25 +348,25 @@ class SecurityValidationTest extends TestCase
             'keycloak_subject' => $sub,
             'email' => 'user@tenant-a.com',
             'display_name' => 'Tenant A User',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         TenantMembership::create([
             'tenant_id' => $tenantA->id,
             'user_profile_id' => $userProfile->id,
             'role_key' => 'viewer',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $token = $this->generateToken([
             'sub' => $sub,
-            'email' => 'user@tenant-a.com'
+            'email' => 'user@tenant-a.com',
         ]);
 
         // Attempting to access Tenant B should fail
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token,
-            'X-Tenant-ID' => $tenantB->id
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-ID' => $tenantB->id,
         ]);
 
         $response->assertStatus(403);
@@ -376,7 +379,7 @@ class SecurityValidationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name' => 'Acme Corp',
             'slug' => 'acme',
-            'status' => 'suspended'
+            'status' => 'suspended',
         ]);
 
         $sub = (string) Str::uuid();
@@ -384,24 +387,24 @@ class SecurityValidationTest extends TestCase
             'keycloak_subject' => $sub,
             'email' => 'user@acme.com',
             'display_name' => 'Acme User',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         TenantMembership::create([
             'tenant_id' => $tenant->id,
             'user_profile_id' => $userProfile->id,
             'role_key' => 'viewer',
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $token = $this->generateToken([
             'sub' => $sub,
-            'email' => 'user@acme.com'
+            'email' => 'user@acme.com',
         ]);
 
         $response = $this->getJson('/api/v1/erp/dashboard', [
-            'Authorization' => 'Bearer ' . $token,
-            'X-Tenant-ID' => $tenant->id
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant-ID' => $tenant->id,
         ]);
 
         $response->assertStatus(403);

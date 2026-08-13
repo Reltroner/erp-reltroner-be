@@ -1,16 +1,23 @@
 <?php
 
+use App\Domain\Audit\AuditLogWriter;
 use App\Http\Middleware\AuditContextMiddleware;
 use App\Http\Middleware\EnsureAdminZoneAccess;
 use App\Http\Middleware\EnsureKeycloakBearerToken;
 use App\Http\Middleware\EnsurePermission;
+use App\Models\AuditLog;
+use App\Models\FeatureEntitlement;
+use App\Models\Plan;
+use App\Models\Tenant;
+use App\Models\UsageCounter;
+use App\Models\UserProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([
     EnsureKeycloakBearerToken::class,
     EnsureAdminZoneAccess::class,
-    AuditContextMiddleware::class
+    AuditContextMiddleware::class,
 ])->group(function () {
 
     Route::get('/admin/dashboard', function () {
@@ -18,44 +25,46 @@ Route::middleware([
             'admin_metrics' => [
                 'total_tenants' => 12,
                 'active_subscriptions' => 8,
-                'system_status' => 'healthy'
-            ]
+                'system_status' => 'healthy',
+            ],
         ]);
     });
 
     Route::get('/admin/tenants', function () {
         return response()->json([
-            'tenants' => \App\Models\Tenant::all()
+            'tenants' => Tenant::all(),
         ]);
-    })->middleware(EnsurePermission::class . ':admin.tenants.view');
+    })->middleware(EnsurePermission::class.':admin.tenants.view');
 
     Route::get('/admin/tenants/{id}', function ($id) {
-        $tenant = \App\Models\Tenant::find($id);
-        if (!$tenant) {
+        $tenant = Tenant::find($id);
+        if (! $tenant) {
             return response()->json(['error' => 'Tenant not found'], 404);
         }
+
         return response()->json($tenant);
-    })->middleware(EnsurePermission::class . ':admin.tenants.view');
+    })->middleware(EnsurePermission::class.':admin.tenants.view');
 
     Route::get('/admin/users', function () {
         return response()->json([
-            'users' => \App\Models\UserProfile::all()
+            'users' => UserProfile::all(),
         ]);
-    })->middleware(EnsurePermission::class . ':admin.users.view');
+    })->middleware(EnsurePermission::class.':admin.users.view');
 
     Route::get('/admin/users/{id}', function ($id) {
-        $user = \App\Models\UserProfile::find($id);
-        if (!$user) {
+        $user = UserProfile::find($id);
+        if (! $user) {
             return response()->json(['error' => 'User not found'], 404);
         }
+
         return response()->json($user);
-    })->middleware(EnsurePermission::class . ':admin.users.view');
+    })->middleware(EnsurePermission::class.':admin.users.view');
 
     Route::get('/admin/audit-logs', function () {
         return response()->json([
-            'audit_logs' => \App\Models\AuditLog::latest()->take(100)->get()
+            'audit_logs' => AuditLog::latest()->take(100)->get(),
         ]);
-    })->middleware(EnsurePermission::class . ':admin.audit.view');
+    })->middleware(EnsurePermission::class.':admin.audit.view');
 
     Route::get('/admin/system/health', function () {
         return response()->json([
@@ -63,25 +72,25 @@ Route::middleware([
             'checks' => [
                 'database' => 'OK',
                 'cache' => 'OK',
-                'keycloak' => 'OK'
-            ]
+                'keycloak' => 'OK',
+            ],
         ]);
     });
 
     Route::get('/admin/entitlements', function () {
         return response()->json([
-            'entitlements' => \App\Models\FeatureEntitlement::all()
+            'entitlements' => FeatureEntitlement::all(),
         ]);
-    })->middleware(EnsurePermission::class . ':admin.entitlements.view');
+    })->middleware(EnsurePermission::class.':admin.entitlements.view');
 
     Route::patch('/admin/entitlements/{id}', function (Request $request, $id) {
-        $entitlement = \App\Models\FeatureEntitlement::find($id);
-        if (!$entitlement) {
+        $entitlement = FeatureEntitlement::find($id);
+        if (! $entitlement) {
             return response()->json(['error' => 'Entitlement not found'], 404);
         }
-        
+
         $request->validate([
-            'is_enabled' => 'required|boolean'
+            'is_enabled' => 'required|boolean',
         ]);
 
         $before = $entitlement->toArray();
@@ -90,7 +99,7 @@ Route::middleware([
 
         // Write Audit Log
         $auditContext = $request->attributes->get('audit_context');
-        app(\App\Domain\Audit\AuditLogWriter::class)->log(
+        app(AuditLogWriter::class)->log(
             $auditContext['tenant_id'],
             $auditContext['actor_user_id'],
             $auditContext['actor_email'],
@@ -104,24 +113,24 @@ Route::middleware([
         );
 
         return response()->json($entitlement);
-    })->middleware(EnsurePermission::class . ':admin.entitlements.update');
+    })->middleware(EnsurePermission::class.':admin.entitlements.update');
 
     Route::get('/admin/usage/tenants/{tenantId}', function ($tenantId) {
         return response()->json([
             'tenant_id' => $tenantId,
-            'usage' => \App\Models\UsageCounter::where('tenant_id', $tenantId)->get()
+            'usage' => UsageCounter::where('tenant_id', $tenantId)->get(),
         ]);
     });
 
     Route::get('/admin/plans', function () {
         return response()->json([
-            'plans' => \App\Models\Plan::all()
+            'plans' => Plan::all(),
         ]);
     });
 
     Route::get('/admin/features', function () {
         return response()->json([
-            'features' => \App\Models\FeatureEntitlement::select('feature_key')->distinct()->get()
+            'features' => FeatureEntitlement::select('feature_key')->distinct()->get(),
         ]);
     });
 });

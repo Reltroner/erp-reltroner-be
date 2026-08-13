@@ -15,10 +15,10 @@ class ResolveTenantContext
     public function handle(Request $request, Closure $next): Response
     {
         $userProfile = $request->attributes->get('user_profile');
-        if (!$userProfile) {
+        if (! $userProfile) {
             return response()->json([
                 'error' => 'Unauthorized',
-                'message' => 'User profile not established'
+                'message' => 'User profile not established',
             ], 401);
         }
 
@@ -28,12 +28,12 @@ class ResolveTenantContext
             ?: $request->input('tenant_id');
 
         // If no tenant specified, resolve from user's first active membership
-        if (!$tenantId) {
+        if (! $tenantId) {
             $firstMembership = $userProfile->memberships()
                 ->where('status', 'active')
                 ->first();
 
-            if (!$firstMembership) {
+            if (! $firstMembership) {
                 // Wait: admin users might not have any membership but can access general ERP features
                 if ($userProfile->isAdmin()) {
                     // Admins will resolve the first tenant in the system if any, or they can specify it
@@ -43,10 +43,10 @@ class ResolveTenantContext
                     }
                 }
 
-                if (!$tenantId) {
+                if (! $tenantId) {
                     return response()->json([
                         'error' => 'Forbidden',
-                        'message' => 'No active tenant context available'
+                        'message' => 'No active tenant context available',
                     ], 403);
                 }
             } else {
@@ -56,10 +56,10 @@ class ResolveTenantContext
 
         // 2. Fetch the tenant
         $tenant = Tenant::find($tenantId);
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json([
                 'error' => 'Not Found',
-                'message' => 'Tenant not found'
+                'message' => 'Tenant not found',
             ], 404);
         }
 
@@ -67,7 +67,7 @@ class ResolveTenantContext
         if ($tenant->status !== 'active') {
             return response()->json([
                 'error' => 'Forbidden',
-                'message' => 'Tenant account is suspended'
+                'message' => 'Tenant account is suspended',
             ], 403);
         }
 
@@ -78,10 +78,10 @@ class ResolveTenantContext
             ->where('status', 'active')
             ->first();
 
-        if (!$membership && !$isAdmin) {
+        if (! $membership && ! $isAdmin) {
             return response()->json([
                 'error' => 'Forbidden',
-                'message' => 'You do not have access to this tenant'
+                'message' => 'You do not have access to this tenant',
             ], 403);
         }
 

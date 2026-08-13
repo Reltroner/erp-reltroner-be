@@ -20,9 +20,9 @@ class AuditContextMiddleware
         if ($userProfile) {
             $actorEmail = $userProfile->email ?: 'system';
             $actorUserId = $userProfile->id;
-            
+
             if ($userProfile->isAdmin()) {
-                $roleKey = 'admin:' . ($userProfile->adminUser->admin_role ?? 'erp-admin');
+                $roleKey = 'admin:'.($userProfile->adminUser->admin_role ?? 'erp-admin');
             }
         } else {
             $actorEmail = 'anonymous';

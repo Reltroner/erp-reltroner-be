@@ -32,7 +32,7 @@ class AuditLogWriter
             'request_id' => $requestId,
             'correlation_id' => $correlationId,
             'ip_address' => $ipAddress,
-            'user_agent' => $userAgent
+            'user_agent' => $userAgent,
         ]);
 
         return AuditLog::create([

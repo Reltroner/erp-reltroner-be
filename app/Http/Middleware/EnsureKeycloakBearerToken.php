@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AdminUser;
 use App\Models\UserProfile;
 use App\Security\Keycloak\KeycloakTokenValidator;
 use Closure;
@@ -24,10 +25,10 @@ class EnsureKeycloakBearerToken
     public function handle(Request $request, Closure $next): Response
     {
         $authorization = $request->header('Authorization');
-        if (!$authorization || !str_starts_with($authorization, 'Bearer ')) {
+        if (! $authorization || ! str_starts_with($authorization, 'Bearer ')) {
             return response()->json([
                 'error' => 'Unauthorized',
-                'message' => 'Bearer token is missing or invalid'
+                'message' => 'Bearer token is missing or invalid',
             ], 401);
         }
 
@@ -38,7 +39,7 @@ class EnsureKeycloakBearerToken
         } catch (Exception $e) {
             return response()->json([
                 'error' => 'Unauthorized',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 401);
         }
 
@@ -46,10 +47,10 @@ class EnsureKeycloakBearerToken
         $email = $payload['email'] ?? null;
         $displayName = $payload['name'] ?? $payload['preferred_username'] ?? $email ?? 'Unknown User';
 
-        if (!$sub) {
+        if (! $sub) {
             return response()->json([
                 'error' => 'Unauthorized',
-                'message' => 'Token has no sub claim'
+                'message' => 'Token has no sub claim',
             ], 401);
         }
 
@@ -59,7 +60,7 @@ class EnsureKeycloakBearerToken
             [
                 'email' => $email,
                 'display_name' => $displayName,
-                'status' => 'active'
+                'status' => 'active',
             ]
         );
 
@@ -67,7 +68,7 @@ class EnsureKeycloakBearerToken
         if ($userProfile->email !== $email || $userProfile->display_name !== $displayName) {
             $userProfile->update([
                 'email' => $email,
-                'display_name' => $displayName
+                'display_name' => $displayName,
             ]);
             // Fire UserProfileSynced event
             event('UserProfileSynced', $userProfile);
@@ -76,14 +77,14 @@ class EnsureKeycloakBearerToken
         // Sync admin status if role exists in token
         $roles = $payload['realm_access']['roles'] ?? [];
         $hasAdminRole = in_array('erp-admin', $roles) || in_array('super-admin', $roles);
-        
+
         if ($hasAdminRole) {
-            \App\Models\AdminUser::updateOrCreate(
+            AdminUser::updateOrCreate(
                 ['user_profile_id' => $userProfile->id],
                 [
                     'admin_role' => in_array('super-admin', $roles) ? 'super-admin' : 'erp-admin',
                     'status' => 'active',
-                    'granted_at' => $userProfile->adminUser->granted_at ?? now()
+                    'granted_at' => $userProfile->adminUser->granted_at ?? now(),
                 ]
             );
         }
@@ -91,7 +92,7 @@ class EnsureKeycloakBearerToken
         if ($userProfile->status !== 'active') {
             return response()->json([
                 'error' => 'Forbidden',
-                'message' => 'User profile is suspended'
+                'message' => 'User profile is suspended',
             ], 403);
         }
 

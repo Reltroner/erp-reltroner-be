@@ -9,7 +9,6 @@ use App\Models\PlanLimit;
 use App\Models\RolePermission;
 use App\Models\Tenant;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -42,7 +41,7 @@ class DatabaseSeeder extends Seeder
             ['permission_key' => 'admin.entitlements.update', 'description' => 'Modify plan entitlements', 'module_key' => 'admin'],
             ['permission_key' => 'admin.audit.view', 'description' => 'Inspect append-only logs', 'module_key' => 'admin'],
             ['permission_key' => 'admin.usage.view', 'description' => 'Inspect resource usage logs', 'module_key' => 'admin'],
-            
+
             // ERP Business permissions
             ['permission_key' => 'inventory.products.view', 'description' => 'View inventory warehouse records', 'module_key' => 'inventory'],
             ['permission_key' => 'inventory.products.create', 'description' => 'Create inventory warehouse records', 'module_key' => 'inventory'],
@@ -66,7 +65,7 @@ class DatabaseSeeder extends Seeder
             'admin.entitlements.view',
             'admin.entitlements.update',
             'admin.audit.view',
-            'admin.usage.view'
+            'admin.usage.view',
         ];
         foreach ($superAdminRoles as $perm) {
             RolePermission::updateOrCreate(['role_key' => 'super-admin', 'permission_key' => $perm], ['scope' => 'system']);
@@ -78,7 +77,7 @@ class DatabaseSeeder extends Seeder
             'admin.tenants.view',
             'admin.users.view',
             'admin.entitlements.view',
-            'admin.audit.view'
+            'admin.audit.view',
         ];
         foreach ($erpAdminRoles as $perm) {
             RolePermission::updateOrCreate(['role_key' => 'erp-admin', 'permission_key' => $perm], ['scope' => 'system']);
@@ -91,7 +90,7 @@ class DatabaseSeeder extends Seeder
             'sales.transactions.create',
             'finance.journals.post',
             'reports.financial.view',
-            'settings.company.update'
+            'settings.company.update',
         ];
         foreach ($ownerRoles as $perm) {
             RolePermission::updateOrCreate(['role_key' => 'owner', 'permission_key' => $perm], ['scope' => 'tenant']);
@@ -100,7 +99,7 @@ class DatabaseSeeder extends Seeder
         // viewer role gets view only permissions
         $viewRoles = [
             'inventory.products.view',
-            'reports.financial.view'
+            'reports.financial.view',
         ];
         foreach ($viewRoles as $perm) {
             RolePermission::updateOrCreate(['role_key' => 'viewer', 'permission_key' => $perm], ['scope' => 'tenant']);
@@ -111,7 +110,7 @@ class DatabaseSeeder extends Seeder
         FeatureEntitlement::updateOrCreate(['plan_key' => 'free', 'feature_key' => 'inventory.products.view'], ['is_enabled' => true]);
         FeatureEntitlement::updateOrCreate(['plan_key' => 'free', 'feature_key' => 'sales.transactions.create'], ['is_enabled' => true]);
         FeatureEntitlement::updateOrCreate(['plan_key' => 'free', 'feature_key' => 'inventory.products.create'], ['is_enabled' => false]);
-        
+
         // Growth plan has create features enabled
         FeatureEntitlement::updateOrCreate(['plan_key' => 'growth', 'feature_key' => 'inventory.products.view'], ['is_enabled' => true]);
         FeatureEntitlement::updateOrCreate(['plan_key' => 'growth', 'feature_key' => 'inventory.products.create'], ['is_enabled' => true]);
@@ -132,7 +131,7 @@ class DatabaseSeeder extends Seeder
                 'id' => '00000000-0000-0000-0000-000000000000',
                 'name' => 'Default Organization',
                 'status' => 'active',
-                'plan_key' => 'free'
+                'plan_key' => 'free',
             ]
         );
     }

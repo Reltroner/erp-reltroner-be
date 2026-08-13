@@ -17,10 +17,10 @@ class EnsureAdminZoneAccess
         $userProfile = $request->attributes->get('user_profile');
         $tokenPayload = $request->attributes->get('token_payload');
 
-        if (!$userProfile || !$tokenPayload) {
+        if (! $userProfile || ! $tokenPayload) {
             return response()->json([
                 'error' => 'Unauthorized',
-                'message' => 'User credentials not established'
+                'message' => 'User credentials not established',
             ], 401);
         }
 
@@ -32,7 +32,7 @@ class EnsureAdminZoneAccess
         $adminRegistry = AdminUser::where('user_profile_id', $userProfile->id)->first();
 
         // If Keycloak role is present, auto-sync/register in db if not exists
-        if ($hasTokenRole && !$adminRegistry) {
+        if ($hasTokenRole && ! $adminRegistry) {
             $adminRegistry = AdminUser::create([
                 'user_profile_id' => $userProfile->id,
                 'admin_role' => in_array('super-admin', $roles) ? 'super-admin' : 'erp-admin',
@@ -44,17 +44,17 @@ class EnsureAdminZoneAccess
         // 3. User must have the role in token and not be suspended locally, OR be active locally
         $isLocalActive = $adminRegistry && $adminRegistry->status === 'active';
 
-        if (!$hasTokenRole && !$isLocalActive) {
+        if (! $hasTokenRole && ! $isLocalActive) {
             return response()->json([
                 'error' => 'Forbidden',
-                'message' => 'Admin zone access required'
+                'message' => 'Admin zone access required',
             ], 403);
         }
 
         if ($adminRegistry && $adminRegistry->status !== 'active') {
             return response()->json([
                 'error' => 'Forbidden',
-                'message' => 'Admin account is suspended'
+                'message' => 'Admin account is suspended',
             ], 403);
         }
 

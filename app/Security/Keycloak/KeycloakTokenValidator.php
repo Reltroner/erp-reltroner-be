@@ -31,7 +31,7 @@ class KeycloakTokenValidator
         $header = json_decode($headerJson, true);
         $payload = json_decode($payloadJson, true);
 
-        if (!$header || !$payload) {
+        if (! $header || ! $payload) {
             throw new Exception('Failed to parse token headers or claims');
         }
 
@@ -42,12 +42,12 @@ class KeycloakTokenValidator
 
         $iss = $payload['iss'];
         $realm = $this->extractRealm($iss);
-        if (!$realm) {
+        if (! $realm) {
             throw new Exception('Unknown realm structure in token');
         }
 
         $allowedRealms = config('keycloak.allowed_realms', []);
-        if (!in_array($realm, $allowedRealms)) {
+        if (! in_array($realm, $allowedRealms)) {
             throw new Exception("Realm '{$realm}' is not allowed");
         }
 
@@ -57,8 +57,8 @@ class KeycloakTokenValidator
             $mockPublicKey = config('keycloak.mock_public_key');
             if ($mockPublicKey) {
                 // If it is a PEM public key, wrap it.
-                if (!str_contains($mockPublicKey, '-----BEGIN PUBLIC KEY-----')) {
-                    $mockPublicKey = "-----BEGIN PUBLIC KEY-----\n" . wordwrap($mockPublicKey, 64, "\n", true) . "\n-----END PUBLIC KEY-----";
+                if (! str_contains($mockPublicKey, '-----BEGIN PUBLIC KEY-----')) {
+                    $mockPublicKey = "-----BEGIN PUBLIC KEY-----\n".wordwrap($mockPublicKey, 64, "\n", true)."\n-----END PUBLIC KEY-----";
                 }
                 $keys = ['mock-kid' => new Key($mockPublicKey, 'RS256')];
             } else {
@@ -77,8 +77,8 @@ class KeycloakTokenValidator
             $decoded = JWT::decode($token, $keys);
             $decodedArray = json_decode(json_encode($decoded), true);
         } catch (Exception $e) {
-            Log::warning('JWT signature or expiry check failed: ' . $e->getMessage());
-            throw new Exception('Invalid token signature or expired: ' . $e->getMessage());
+            Log::warning('JWT signature or expiry check failed: '.$e->getMessage());
+            throw new Exception('Invalid token signature or expired: '.$e->getMessage());
         } finally {
             JWT::$leeway = $originalLeeway;
         }
@@ -90,7 +90,7 @@ class KeycloakTokenValidator
 
         $expectedAudience = config('keycloak.expected_audience');
         $audiences = is_array($decodedArray['aud']) ? $decodedArray['aud'] : [$decodedArray['aud']];
-        if (!in_array($expectedAudience, $audiences)) {
+        if (! in_array($expectedAudience, $audiences)) {
             throw new Exception("Wrong audience '{$expectedAudience}' expected");
         }
 
@@ -107,6 +107,7 @@ class KeycloakTokenValidator
         if (preg_match($pattern, $iss, $matches)) {
             return $matches[1];
         }
+
         return null;
     }
 
@@ -116,25 +117,25 @@ class KeycloakTokenValidator
     private function fetchJwksKeys(string $realm): array
     {
         $cacheKey = "keycloak_jwks_keys_{$realm}";
-        
+
         return Cache::remember($cacheKey, config('keycloak.jwks_cache_ttl', 3600), function () use ($realm) {
             $baseUrl = config('keycloak.base_url');
             $jwksUrl = "{$baseUrl}/realms/{$realm}/protocol/openid-connect/certs";
 
             try {
                 $response = Http::get($jwksUrl);
-                if (!$response->successful()) {
+                if (! $response->successful()) {
                     throw new Exception("HTTP request to JWKS failed for realm '{$realm}'");
                 }
-                
+
                 $jwks = $response->json();
-                if (!$jwks || empty($jwks['keys'])) {
+                if (! $jwks || empty($jwks['keys'])) {
                     throw new Exception("Empty JWKS returned for realm '{$realm}'");
                 }
 
                 return JWK::parseKeySet($jwks);
             } catch (Exception $e) {
-                Log::error("Failed to retrieve Keycloak JWKS for realm '{$realm}': " . $e->getMessage());
+                Log::error("Failed to retrieve Keycloak JWKS for realm '{$realm}': ".$e->getMessage());
                 throw $e;
             }
         });
