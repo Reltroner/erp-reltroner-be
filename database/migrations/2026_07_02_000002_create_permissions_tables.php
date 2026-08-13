@@ -39,7 +39,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('permission_key')->references('permission_key')->on('permissions')->cascadeOnDelete();
-            $table->unique(['tenant_id', 'user_profile_id', 'permission_key']);
+            $table->unique(
+                ['tenant_id', 'user_profile_id', 'permission_key'],
+                'user_perm_override_tenant_user_perm_unique'
+            );
         });
     }
 
