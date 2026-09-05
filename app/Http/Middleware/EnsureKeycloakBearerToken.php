@@ -6,9 +6,9 @@ use App\Models\AdminUser;
 use App\Models\UserProfile;
 use App\Security\Keycloak\KeycloakTokenValidator;
 use Closure;
-use Exception;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class EnsureKeycloakBearerToken
 {
@@ -36,7 +36,7 @@ class EnsureKeycloakBearerToken
 
         try {
             $payload = $this->validator->validateToken($token);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'error' => 'Unauthorized',
                 'message' => $e->getMessage(),

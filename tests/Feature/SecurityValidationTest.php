@@ -7,6 +7,7 @@ use App\Models\TenantMembership;
 use App\Models\UserProfile;
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -15,6 +16,12 @@ class SecurityValidationTest extends TestCase
     use RefreshDatabase;
 
     private const WINDOWS_OPENSSL_CONFIG = 'C:/Program Files/Git/mingw64/ssl/openssl.cnf';
+
+    /** @var array{private: string, public: string}|null */
+    protected static ?array $cachedKeyPair = null;
+
+    /** @var array{private: string, public: string}|null */
+    protected static ?array $cachedWrongKeyPair = null;
 
     protected string $privateKey;
 
@@ -26,13 +33,13 @@ class SecurityValidationTest extends TestCase
     {
         parent::setUp();
 
-        // 1. Generate test RSA key pair
-        $keyPair = $this->generateRsaKeyPair();
+        // 1. Generate test RSA key pair (cached statically across tests)
+        $keyPair = self::$cachedKeyPair ??= $this->generateRsaKeyPair();
         $this->privateKey = $keyPair['private'];
         $this->publicKey = $keyPair['public'];
 
         // 2. Generate different RSA key pair for testing invalid signature
-        $wrongKeyPair = $this->generateRsaKeyPair();
+        $wrongKeyPair = self::$cachedWrongKeyPair ??= $this->generateRsaKeyPair();
         $this->wrongPrivateKey = $wrongKeyPair['private'];
 
         // 3. Configure mock settings
@@ -151,7 +158,7 @@ class SecurityValidationTest extends TestCase
     /**
      * Helper to generate mock Keycloak JWT token.
      */
-    protected function generateToken(array $overrides = [], bool $useWrongKey = false): string
+    protected function generateToken(array $overrides = [], bool $useWrongKey = false, string $alg = 'RS256'): string
     {
         $payload = array_merge([
             'iss' => 'https://sso.reltroner.com/realms/reltroner-erp',
@@ -169,7 +176,7 @@ class SecurityValidationTest extends TestCase
 
         $key = $useWrongKey ? $this->wrongPrivateKey : $this->privateKey;
 
-        return JWT::encode($payload, $key, 'RS256', 'mock-kid');
+        return JWT::encode($payload, $key, $alg, 'mock-kid');
     }
 
     public function test_missing_token_returns_401(): void
@@ -409,5 +416,133 @@ class SecurityValidationTest extends TestCase
 
         $response->assertStatus(403);
         $response->assertJsonFragment(['message' => 'Tenant account is suspended']);
+    }
+
+    public function test_wrong_issuer_host_with_valid_realm_returns_401(): void
+    {
+        $token = $this->generateToken([
+            'iss' => 'https://evil.example/realms/reltroner-erp',
+        ]);
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_wrong_issuer_scheme_returns_401(): void
+    {
+        $token = $this->generateToken([
+            'iss' => 'http://sso.reltroner.com/realms/reltroner-erp',
+        ]);
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_wrong_issuer_path_returns_401(): void
+    {
+        $token = $this->generateToken([
+            'iss' => 'https://sso.reltroner.com/auth/realms/reltroner-erp',
+        ]);
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_issuer_with_trailing_slash_returns_401(): void
+    {
+        $token = $this->generateToken([
+            'iss' => 'https://sso.reltroner.com/realms/reltroner-erp/',
+        ]);
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_disallowed_algorithm_hs256_returns_401(): void
+    {
+        $payload = [
+            'iss' => 'https://sso.reltroner.com/realms/reltroner-erp',
+            'aud' => 'erp-reltroner-be',
+            'sub' => (string) Str::uuid(),
+            'email' => 'test@example.com',
+            'preferred_username' => 'testuser',
+            'name' => 'Test User',
+            'realm_access' => ['roles' => ['erp-user']],
+            'exp' => time() + 3600,
+            'iat' => time(),
+        ];
+        $token = JWT::encode($payload, 'disallowed-hmac-secret-key-32bytes!', 'HS256');
+
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_algorithm_outside_configured_allow_list_returns_401(): void
+    {
+        // Allowed algorithm is configured as RS256, but token uses RS512
+        config(['keycloak.allowed_algorithms' => ['RS256']]);
+
+        $token = $this->generateToken([], false, 'RS512');
+
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_missing_alg_header_returns_401(): void
+    {
+        $header = ['typ' => 'JWT'];
+        $payload = [
+            'iss' => 'https://sso.reltroner.com/realms/reltroner-erp',
+            'aud' => 'erp-reltroner-be',
+            'sub' => (string) Str::uuid(),
+            'email' => 'test@example.com',
+            'preferred_username' => 'testuser',
+            'name' => 'Test User',
+            'realm_access' => ['roles' => ['erp-user']],
+            'exp' => time() + 3600,
+            'iat' => time(),
+        ];
+
+        $encodedHeader = rtrim(strtr(base64_encode(json_encode($header)), '+/', '-_'), '=');
+        $encodedPayload = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+        $signature = rtrim(strtr(base64_encode('dummy-signature'), '+/', '-_'), '=');
+        $token = "{$encodedHeader}.{$encodedPayload}.{$signature}";
+
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+    }
+
+    public function test_jwks_http_failure_returns_401_without_leaking_internals(): void
+    {
+        config(['keycloak.mock_mode' => false]);
+        Http::fake([
+            'https://sso.reltroner.com/realms/reltroner-erp/protocol/openid-connect/certs' => Http::response('Internal Server Error', 500),
+        ]);
+
+        $token = $this->generateToken();
+        $response = $this->getJson('/api/v1/erp/dashboard', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['error' => 'Unauthorized']);
+        $this->assertStringNotContainsString('500', $response->json('message') ?? '');
+        $this->assertStringNotContainsString('openid-connect', $response->json('message') ?? '');
     }
 }
